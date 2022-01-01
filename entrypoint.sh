@@ -55,6 +55,15 @@ if [ -z "$HOSTNAME" ]; then
     sleeping
 fi
 
+AWSCLI_INSTALLER=$DIR0/aws-cli-installer.sh
+
+if [ ! -f "$AWSCLI_INSTALLER" ]; then
+    echo "No aws-cli-installer.sh found. Exiting..."
+    sleeping
+fi
+
+$AWSCLI_INSTALLER
+
 PYCACHE=$DIR0/__pycache__
 
 if [ -d "$PYCACHE" ]; then
