@@ -12,6 +12,7 @@ else
 fi
 cd $tdir
 
+# apt  install awscli -y
 
 cpu_arch=$(uname -m)
 

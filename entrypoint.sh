@@ -4,16 +4,54 @@ DIR0="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 BUILD_OPTS="--build"
 
-if [ -z "$1" ]; then
-    BUILD_OPTS=""
-fi
-
-VENV_DIR=$(ls $DIR0/venv*/bin/activate | head -n 1)
-
 sleeping () {
     echo "Sleeping due to an issue..."
     sleep infinity
 }
+
+if [ -f "$DIR0/.env" ]; then
+    export $(cat $DIR0/.env | xargs)
+fi
+
+if [ -z "$1" ]; then
+    BUILD_OPTS=""
+fi
+
+if [ -z "$PARALLEL" ]; then
+    PARALLEL=0
+fi
+
+if [ -z "$REPEAT" ]; then
+    REPEAT=0
+fi
+
+if [ "$PARALLEL" == "1" ]; then
+    if [ ! -d "$SRC_DIR" ]; then
+        echo "SRC_DIR not found: $SRC_DIR"
+        sleeping
+    fi
+    if [ ! -d "$DEST_DIR" ]; then
+        echo "DEST_DIR not found: $DEST_DIR"
+        sleeping
+    fi
+    if ! [ -x "$(command -v pigz)" ]; then
+        echo 'Installing pigz.'
+        apt-get install -y pigz
+    fi
+    PROCS=$(nproc)
+    BASENAME=$(basename $SRC_DIR | cut -d "." -f 1)
+    DIRNAME=$(dirname $SRC_DIR)
+    # replace all "/" with "_"
+    DIRNAME=$(echo $DIRNAME | sed 's/\//_/g')
+    DIRNAME="${DIRNAME:1}"
+    FNAME="$DEST_DIR/${DIRNAME}_${BASENAME}.tar.gz"
+    tar --use-compress-program="pigz -9 -k -p$PROCS " -cvf $FNAME $SRC_DIR
+    ls -la $FNAME
+    echo "Done, sleeping now."
+    sleep infinity
+fi
+
+VENV_DIR=$(ls $DIR0/venv*/bin/activate | head -n 1)
 
 cat $DIR0/scripts/get-pip.txt > $DIR0/scripts/get-pip.py
 
@@ -55,14 +93,20 @@ if [ -z "$HOSTNAME" ]; then
     sleeping
 fi
 
-AWSCLI_INSTALLER=$DIR0/aws-cli-installer.sh
+IS_UBUNTU=$(cat /etc/os-release | grep ubuntu)
 
-if [ ! -f "$AWSCLI_INSTALLER" ]; then
-    echo "No aws-cli-installer.sh found. Exiting..."
-    sleeping
+if [ -z "$IS_UBUNTU" ]; then
+    AWSCLI_INSTALLER=$DIR0/aws-cli-installer.sh
+
+    if [ ! -f "$AWSCLI_INSTALLER" ]; then
+        echo "No aws-cli-installer.sh found. Exiting..."
+        sleeping
+    fi
+
+    $AWSCLI_INSTALLER
+else
+    apt install awscli -y
 fi
-
-$AWSCLI_INSTALLER
 
 PYCACHE=$DIR0/__pycache__
 
