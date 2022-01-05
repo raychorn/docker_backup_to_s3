@@ -25,32 +25,6 @@ if [ -z "$REPEAT" ]; then
     REPEAT=0
 fi
 
-if [ "$PARALLEL" == "1" ]; then
-    if [ ! -d "$SRC_DIR" ]; then
-        echo "SRC_DIR not found: $SRC_DIR"
-        sleeping
-    fi
-    if [ ! -d "$DEST_DIR" ]; then
-        echo "DEST_DIR not found: $DEST_DIR"
-        sleeping
-    fi
-    if ! [ -x "$(command -v pigz)" ]; then
-        echo 'Installing pigz.'
-        apt-get install -y pigz
-    fi
-    PROCS=$(nproc)
-    BASENAME=$(basename $SRC_DIR | cut -d "." -f 1)
-    DIRNAME=$(dirname $SRC_DIR)
-    # replace all "/" with "_"
-    DIRNAME=$(echo $DIRNAME | sed 's/\//_/g')
-    DIRNAME="${DIRNAME:1}"
-    FNAME="$DEST_DIR/${DIRNAME}_${BASENAME}.tar.gz"
-    tar --use-compress-program="pigz -9 -k -p$PROCS " -cvf $FNAME $SRC_DIR
-    ls -la $FNAME
-    echo "Done, sleeping now."
-    sleep infinity
-fi
-
 VENV_DIR=$(ls $DIR0/venv*/bin/activate | head -n 1)
 
 cat $DIR0/scripts/get-pip.txt > $DIR0/scripts/get-pip.py
@@ -106,6 +80,38 @@ if [ -z "$IS_UBUNTU" ]; then
     $AWSCLI_INSTALLER
 else
     apt install awscli -y
+fi
+
+if [ "$PARALLEL" == "1" ]; then
+    if [ ! -d "$SRC_DIR" ]; then
+        echo "SRC_DIR not found: $SRC_DIR"
+        sleeping
+    fi
+    if [ ! -d "$DEST_DIR" ]; then
+        echo "DEST_DIR not found: $DEST_DIR"
+        sleeping
+    fi
+    if ! [ -x "$(command -v pigz)" ]; then
+        echo 'Installing pigz.'
+        apt-get install -y pigz
+    fi
+    PROCS=$(nproc)
+    BASENAME=$(basename $SRC_DIR | cut -d "." -f 1)
+    DIRNAME=$(dirname $SRC_DIR)
+    # replace all "/" with "_"
+    DIRNAME=$(echo $DIRNAME | sed 's/\//_/g')
+    DIRNAME="${DIRNAME:1}"
+    FNAME="$DEST_DIR/${DIRNAME}_${BASENAME}.tar.gz"
+    tar --use-compress-program="pigz -9 -k -p$PROCS " -cvf $FNAME $SRC_DIR
+    ls -la $FNAME
+    # send the file to S3...
+    if [ ! -z "$S3_URI" ]; then
+        S3_FNAME=s3://$S3_URI/${HOSTNAME}_${DIRNAME}_${BASENAME}
+        echo "$FNAME -> $S3_FNAME"
+        aws s3 cp $FNAME s3://$S3_URI/$S3_FNAME
+    fi
+    echo "Done, sleeping now."
+    sleep infinity
 fi
 
 PYCACHE=$DIR0/__pycache__
