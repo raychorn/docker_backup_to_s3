@@ -2,6 +2,7 @@ version: '3'
 
 services:
   tarbaby-builder:
-    dockerfile: ./Dockerfile
+    build:
+      context: .
     tty: true
     stdin_open: true
